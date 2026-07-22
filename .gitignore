@@ -1,0 +1,9 @@
+marktmonitor.html
+marktmonitor-state.json
+feldnotizen.md
+logs/
+*.log
+backup/*.json
+# Recherche-Prompts bleiben lokal: sie verraten, wen wir beobachten
+monitor-auftrag-voll.md
+monitor-auftrag-news.md
