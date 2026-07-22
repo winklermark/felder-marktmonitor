@@ -44,7 +44,7 @@ try {
     $geaendert = ($hashVor -ne $hashNach)
 
     if ($Mode -eq "news" -and -not $geaendert) {
-        Say "News-Lauf ohne neue Ereignisse - nichts zu veroeffentlichen. Fertig."
+        Say "WARNUNG: News-Lauf hat den State gar nicht angefasst - laut Prompt sollte mindestens meta.letzterLauf aktualisiert werden. Recherche pruefen (logs\claude-output.txt). Alter Stand bleibt online." "WARN"
         exit 0
     }
     if ($Mode -eq "voll" -and -not $geaendert) {
