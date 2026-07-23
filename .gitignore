@@ -4,6 +4,7 @@ feldnotizen.md
 logs/
 *.log
 backup/*.json
+monitor-salt.bin
 # Recherche-Prompts bleiben lokal: sie verraten, wen wir beobachten
 monitor-auftrag-voll.md
 monitor-auftrag-news.md
