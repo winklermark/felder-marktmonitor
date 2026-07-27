@@ -30,15 +30,33 @@ try {
     $PW = [TrCredMan]::Read("felder-marktmonitor-passwort")
     if ([string]::IsNullOrEmpty($PW)) { throw "Kein Passwort im Credential Manager (setup-passwort.cmd ausfuehren!)" }
 
+    # Netzwerk abwarten (nachgeholte Laeufe starten oft, bevor die Verbindung steht - Vorfall 24.07.2026)
+    $netzTry = 0
+    while ($netzTry -lt 5 -and -not (Test-Connection github.com -Count 1 -Quiet -ErrorAction SilentlyContinue)) {
+        $netzTry++
+        Say "Netzwerk noch nicht bereit - warte 60 s ($netzTry/5) ..." "WARN"
+        Start-Sleep -Seconds 60
+    }
+
     git pull --quiet 2>$null
     $hashVor = (Get-FileHash "$RepoDir\marktmonitor-state.json" -Algorithm SHA256).Hash
 
     # Recherche-Lauf (unbeaufsichtigt; Claude editiert NUR marktmonitor-state.json und feldnotizen.md)
+    # Ein Wiederholversuch bei transienten API-Fehlern (Vorfall 27.07.2026: Connection closed mid-response)
     $promptDatei = if ($Mode -eq "voll") { "monitor-auftrag-voll.md" } else { "monitor-auftrag-news.md" }
     $prompt = Get-Content "$RepoDir\$promptDatei" -Raw -Encoding UTF8
-    Say "Starte Claude-Recherche ($promptDatei) ..."
-    $prompt | & $Claude -p --allowedTools "WebSearch,WebFetch,Read,Write,Edit,Glob,Grep" --permission-mode acceptEdits --max-turns 150 | Out-File "$RepoDir\logs\claude-output.txt" -Encoding utf8
-    if ($LASTEXITCODE -ne 0) { throw "Claude-Lauf fehlgeschlagen (Exit $LASTEXITCODE) - siehe logs\claude-output.txt" }
+    $versuch = 0
+    do {
+        $versuch++
+        Say "Starte Claude-Recherche ($promptDatei), Versuch $versuch/2 ..."
+        $prompt | & $Claude -p --allowedTools "WebSearch,WebFetch,Read,Write,Edit,Glob,Grep" --permission-mode acceptEdits --max-turns 150 | Out-File "$RepoDir\logs\claude-output.txt" -Encoding utf8
+        $claudeExit = $LASTEXITCODE
+        if ($claudeExit -ne 0 -and $versuch -lt 2) {
+            Say "Claude-Lauf fehlgeschlagen (Exit $claudeExit) - zweiter Versuch in 120 s" "WARN"
+            Start-Sleep -Seconds 120
+        }
+    } while ($claudeExit -ne 0 -and $versuch -lt 2)
+    if ($claudeExit -ne 0) { throw "Claude-Lauf fehlgeschlagen (Exit $claudeExit, $versuch Versuche) - siehe logs\claude-output.txt" }
 
     $hashNach = (Get-FileHash "$RepoDir\marktmonitor-state.json" -Algorithm SHA256).Hash
     $geaendert = ($hashVor -ne $hashNach)
