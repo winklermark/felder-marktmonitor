@@ -51,9 +51,17 @@ try {
         Say "Starte Claude-Recherche ($promptDatei), Versuch $versuch/2 ..."
         $prompt | & $Claude -p --allowedTools "WebSearch,WebFetch,Read,Write,Edit,Glob,Grep" --permission-mode acceptEdits --max-turns 150 | Out-File "$RepoDir\logs\claude-output.txt" -Encoding utf8
         $claudeExit = $LASTEXITCODE
-        if ($claudeExit -ne 0 -and $versuch -lt 2) {
-            Say "Claude-Lauf fehlgeschlagen (Exit $claudeExit) - zweiter Versuch in 120 s" "WARN"
-            Start-Sleep -Seconds 120
+        if ($claudeExit -ne 0) {
+            # Vorfall 27.07.2026: Recherche war fertig geschrieben, erst DANACH riss die API-Verbindung ab.
+            # Wenn der State sich geaendert hat, ist das Ergebnis da - als Erfolg werten statt duplizierend neu zu recherchieren.
+            $hashJetzt = (Get-FileHash "$RepoDir\marktmonitor-state.json" -Algorithm SHA256).Hash
+            if ($hashJetzt -ne $hashVor) {
+                Say "Claude meldete Exit $claudeExit, aber der State wurde vollstaendig geaendert - werte als Erfolg" "WARN"
+                $claudeExit = 0
+            } elseif ($versuch -lt 2) {
+                Say "Claude-Lauf fehlgeschlagen (Exit $claudeExit) - zweiter Versuch in 120 s" "WARN"
+                Start-Sleep -Seconds 120
+            }
         }
     } while ($claudeExit -ne 0 -and $versuch -lt 2)
     if ($claudeExit -ne 0) { throw "Claude-Lauf fehlgeschlagen (Exit $claudeExit, $versuch Versuche) - siehe logs\claude-output.txt" }
